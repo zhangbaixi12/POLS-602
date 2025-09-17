@@ -1,2 +1,2 @@
 # POLS-602
-Coursework will be uploaded here
+Hi, welcome to my Github repository. Coursework of POLS 602 will be uploaded here.
