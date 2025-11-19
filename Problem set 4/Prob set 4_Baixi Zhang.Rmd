@@ -1,0 +1,138 @@
+---
+title: "prob set 4 Baixi Zhang"
+output: pdf_document
+date: "2025-11-18"
+---
+
+# Part 1
+
+## 1.
+
+A confounder is a variable that influences your independent variable X and dependent variable Y at the same time. We should control it in our model otherwise it will open a backdoor path causing bias in estimating relationship between X and Y.
+
+A collider is a variable that being influenced by your independent variable X and dependent variable Y at the same time. We should not include the collider into our model otherwise it may create bias.
+
+## 2.
+
+In the original DAG with a collider, the collider blocks the path between X and Y, so the two variables are independent. However, conditioning on a collider opens the path between X and Y, causing spurious correlation.
+
+## 3.
+
+Statistical summaries or correlations cannot identified the causal mechanisms and causal directions between variables. Thus, it may create bias if adding controls solely relied on statistics. For example, collider, confounder, mediator and M-bias variables may have identical statistical estimates. We should use theory, substantive knowledge and DAG to assist us deciding controls.
+
+## 4.
+
+"Kitchen sink regression" refers to that adding all available variables into multivariate regression models, and then select them by p-value or model information. The problems including: ignoring the causal directionality, lacking of meaningful causal interpretation, inflated alpha error rate, overfitting and model instability, and ruling out professional knowledge.
+
+## 5.
+
+Backdoor path refers to a non-causal path connecting X and Y through another variable Z. It leads to a spurious association between X and Y even if there's no causal relationship between these two. By including the variable Z in backdoor path into the model, Z is holding constant and the backdoor path is blocked. In this case the bias caused by Z is excluded from the coefficient, and the coefficient estimate approaches the unbiased one.
+
+# Part 2
+
+Treatment variable (X) : Intensity of populist rhetoric from incumbent
+
+Outcome variable (Y): Democratic support of public
+
+Confounder (C): Radical index of voters
+
+Mediator (M): Backsliding events executed by incumbent
+
+Collider (L): Political engagement of public
+
+Instrument (I): Community note function in social media
+
+Exogenous on Y (E): Education level
+
+```{r}
+n <- 1000
+set.seed(8964) #enable replication
+
+## Generate exogenous var.
+
+# Confounder: Radical index of voters
+ideo_spec <- rnorm(n, mean = 0,sd = 1)
+
+#Instrument: Community note function
+comm_notes <- sample(c(0, 1), n, replace = TRUE, prob = c(0.5, 0.5))
+
+#Exogenous on Y: Education level
+edu <- rnorm(n, mean = 0,sd = 1)
+
+#generate remaining var. as linear function 
+
+#Treatment variable: Intensity of populist rhetoric from incumbent
+popu_rheto <- 0.7*ideo_spec + (-0.7)*comm_notes + rnorm(n)
+
+#Mediator: Backsliding events  executed by incumbent
+backsl_event <- 0.6*popu_rheto + rnorm(n)
+
+#Outcome variable: Democratic support of public
+dem_sup <- (-0.7)*ideo_spec + 0.6*edu + (-0.4)*popu_rheto + (-0.6) * backsl_event + rnorm(n)
+
+#Collider: Political engagement of public
+pol_engage <- 0.5*popu_rheto + 0.5*dem_sup + rnorm(n)
+
+```
+
+## 1.
+
+```{r}
+#direct effect model
+model1 <- lm(dem_sup ~ popu_rheto + ideo_spec + backsl_event)
+
+summary(model1)
+```
+
+In the model estimating direct effect between X and Y, we need to include the mediator, the confounder and the exogenous variable on Y. By controlling the confounder, the backdoor path is blocked, so that we can have unbiased estimate. By controlling the mediator, the effect of mediator is excluded and the direct effect is isolated.
+
+## 2.
+
+```{r}
+#total effect model
+model2 <- lm(dem_sup ~ popu_rheto + ideo_spec)
+
+summary(model2)
+```
+
+For identifying the total effect, we just need to exclude the mediator from the model. Therefore the effect of mediator will be included in the coefficient of X.
+
+## 3.
+
+The discussion below will based on direct effect model.
+
+```{r}
+#control for the collider
+model3 <- lm(dem_sup ~ popu_rheto + ideo_spec + backsl_event + pol_engage)
+
+summary(model3)
+```
+
+Comparing with coefficient in model 1 (-0.45) and the true effect (-0.4), the coefficient of populist rhetoric increased to -0.63, which is significantly biased because a new causal path is opened by controlling the collider.
+
+```{r}
+#control for the exogenous Y var.
+model4 <- lm(dem_sup ~ popu_rheto + ideo_spec + backsl_event + edu)
+
+summary(model4)
+```
+
+By controlling the exogenous variable, although the coefficient only changed marginally, the residual standard error decreased from 1.12 to 0.98, and the standard error of X coefficient decreased from 0.041 to 0.035, which indicates the estimate is more precise.
+
+```{r}
+#control for the instrument
+model5 <- lm(dem_sup ~ popu_rheto + ideo_spec + backsl_event + comm_notes)
+
+summary(model5)
+
+#control for the instrument but not controlling confounder
+model6 <- lm(dem_sup ~ popu_rheto  + backsl_event + comm_notes)
+
+summary(model6)
+```
+
+If we control the instrumental variable, we actually exclude the part of clean and good variation of X, which will lead to bias in X coefficient. However in our model the confounder has been controlled, so the backdoor path is blocked. We need to stop controlling the confounder to see the significant bias. In model 5, the X coefficient -0.82 is significantly biased because it actually shows the variation caused by \$ideo_spec\$.
+
+## 4.
+
+Given the reading and simulation results, we should base on our theory and causal argument to choose which variables to include in a model, instead of base on p-value or add everything we have. In the case of my study, since I want to examine the direct effect, I should include confounder, mediator and exogenous variable on Y.
